@@ -32,7 +32,7 @@ class FileUploadView(APIView):
             file_serializer.save()
             image = request.data['file']
             imagepath = "/Users/qaziammar/Documents/Pycharm/DjanogPractice/api/" + str(image)
-            yourdata = red_blood_cell_segmentation(imagepath)
+            yourdata = watershed_drwaqas_seg(imagepath)
             data = {"imagePoints": yourdata}
             returnData = {"data": data}
             # results = YourSerializer(yourdata, many=True).data

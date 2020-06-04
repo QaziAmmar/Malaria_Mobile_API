@@ -8,13 +8,11 @@ This a testing code for segmentaion of single image. this code will be added int
 """
 
 import cv2
-import json
 import os.path
 import numpy as np
 from scipy import ndimage
 from skimage.feature import peak_local_max
 from skimage.morphology import watershed
-from custom_classes import path, cv_iml
 
 
 def preprocess_image(image, mean_gray):
@@ -129,29 +127,35 @@ def save_cells_annotation(annotated_img, labels):
         x, y, w, h = cv2.boundingRect(c)
         # Change these coordinate according to microscope resolution.
         # these parameters are need to be set automatically
+
         x = x - 10
         y = y - 10
+        if x < 0:
+            x = 0
+        if y < 0:
+            y = 0
         w = w + 15
         h = h + 15
         if (w < 70 or h < 70) or (w > 200 or h > 200):
             continue
         cv2.rectangle(annotated_img, (x, y), (x + w, y + h), (0, 0, 255), 2)
-        roi = original_image[y:y + h, x:x + w]
+        roi = original_image[y:y + h, x:x + w, :]
 
         #  Make JSON object to save annotation file.
-        json_object.append({
-            # "cell_name": cell_save_name,
-            "x": str(x),
-            "y": str(y),
-            "h": str(h),
-            "w": str(w),
-            "status": "healthy"
-        })
+        json_object.append({"x": x, "y": y, "h": h, "w": w})
         individual_cell_images.append(roi)
+        # json_object.append({
+        #     # "cell_name": cell_save_name,
+        #     "x": str(x),
+        #     "y": str(y),
+        #     "h": str(h),
+        #     "w": str(w),
+        #     "status": "healthy"
+        # })
+
         # cv2.imwrite(save_individual_cell_path + cell_save_name, roi)
         cell_count += 1
 
-    total_cell_count = cell_count
     return annotated_img, individual_cell_images, json_object
 
 
@@ -186,11 +190,11 @@ def get_mean_gray_image(img):
 # this is the main fucntion of this class that calls all other functions.
 def cell_segmentation(image_name):
     # base path of folder where you save all related annotation.
-    folder_base_path = path.result_folder_path + "microscope_test/"
-
-    # path of folder where each individual cell is save.
-    save_individual_cell_path = folder_base_path + "rbc/"
-    make_folder_with(save_individual_cell_path)
+    # folder_base_path = path.result_folder_path + "microscope_test/"
+    #
+    # # path of folder where each individual cell is save.
+    # save_individual_cell_path = folder_base_path + "rbc/"
+    # make_folder_with(save_individual_cell_path)
 
     # reading image from folder.
     image = cv2.imread(image_name)
@@ -201,9 +205,8 @@ def cell_segmentation(image_name):
     forground_background_mask = preprocess_image(image.copy(), mean_gray)
 
     # find contours of newimg
-    contours, hierarchy = cv2.findContours(forground_background_mask, cv2.RETR_TREE,
+    _, contours, hierarchy = cv2.findContours(forground_background_mask, cv2.RETR_TREE,
                                            cv2.CHAIN_APPROX_SIMPLE)
-    print(len(contours))
 
     # %%
     # filling the "holes" of the cells
@@ -216,9 +219,7 @@ def cell_segmentation(image_name):
 
     # %%
     # plot annotation on image
-    annotated_img, clotted_cell_image, json_object = save_cells_annotation(annotated_img,
-                                                                           forground_background_mask,
-                                                                           labels, image_name)
-    # save annotation of each image into json file.
+    annotated_img, individual_cell_images, json_object = save_cells_annotation(annotated_img,
+                                                                               labels)
 
-
+    return annotated_img, individual_cell_images, json_object

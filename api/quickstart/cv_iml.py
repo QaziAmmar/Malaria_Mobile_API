@@ -2,11 +2,9 @@ import cv2
 import os
 import numpy as np
 import copy
-import tensorflow as tf
-import matplotlib.pyplot as plt
+from .seg_watershed_drwaqas import cell_segmentation
 import tensorflow as tf
 from sklearn.preprocessing import LabelEncoder
-import os
 
 
 def test_print():
@@ -14,7 +12,16 @@ def test_print():
 
 
 def watershed_drwaqas_seg(image_path):
-    print(image_path)
+    print("watershed dr waqas code is running")
+    respons_json_object = []
+    annotated_img, individual_cell_images, json_object = cell_segmentation(image_path)
+    prediction = check_image_malaria(individual_cell_images)
+    # Merging cell segmentation and classification retuls
+    for temp_json, temp_pred in zip(json_object, prediction):
+        temp_json.update(temp_pred)
+        respons_json_object.append(temp_json)
+    print(respons_json_object)
+    return respons_json_object
 
 
 def red_blood_cell_segmentation(image_path):
@@ -108,13 +115,22 @@ def red_blood_cell_segmentation(image_path):
     return rectangle_points
 
 
-def check_image_malaria(image):
-    # Model 1: CNN from Scratch
-    img = cv2.imread(image)
+def image_normalization(img):
     IMG_DIMS = (125, 125)
     img = cv2.resize(img, dsize=IMG_DIMS, interpolation=cv2.INTER_CUBIC)
     img = np.array(img, dtype=np.float32)
-    img_list = [img, img.copy()]
+    return img
+
+
+def check_image_malaria(images):
+    # Model 1: CNN from Scratch
+
+    img_list = []
+    print("length of images" + str(len(images)))
+    for temp_img in images:
+        img = image_normalization(temp_img)
+        img_list.append(img)
+
     test_data = np.array(list(img_list))
 
     print("img", len(test_data))
@@ -126,15 +142,18 @@ def check_image_malaria(image):
     le = LabelEncoder()
     le.fit(train_labels)
 
-    train_labels_enc = le.transform(train_labels)
+    # train_labels_enc = le.transform(train_labels)
 
     basic_cnn_preds_labels = le.inverse_transform([1 if pred > 0.5 else 0
                                                    for pred in basic_cnn_preds.ravel()])
-    prediction = {
-        "prediction": basic_cnn_preds_labels[0],
-        "confidence": basic_cnn_preds[0][0]
-    }
-    os.remove(image)
+    prediction = []
+    for temp_prediction, temp_confidance in zip(basic_cnn_preds_labels, basic_cnn_preds):
+        prediction.append({"prediction": temp_prediction, "confidence": temp_confidance[0]})
+    # prediction = {
+    #     "prediction": basic_cnn_preds_labels[0],
+    #     "confidence": basic_cnn_preds[0][0]
+    # }
+
     return prediction
 
 
@@ -161,7 +180,8 @@ def get_model():
     model = tf.keras.Model(inputs=inp, outputs=out)
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     # model.summary()
-    save_weight_path = "/Users/qaziammar/Downloads/basic_cnn.h5"
+
+    save_weight_path = "/Users/qaziammar/Documents/Thesis/Model_Result_Dataset/SavedModel/MalariaDetaction_DrMoshin/basic_cnn_IML_fineTune.h5"
 
     model.load_weights(save_weight_path)
     return model
